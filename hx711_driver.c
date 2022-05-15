@@ -150,9 +150,10 @@ int read_hx711_24(){
   int  dout = 0;
 
   dout = (PORTB&doutMask)>>5;
-  uart_puts("DOUT INIT: ");
-  PrintNumber(dout,2,1);
-  uart_puts("\n\r");
+ // uart_puts("DOUT INIT: ");
+ // PrintNumber(dout,2,1);
+ // uart_puts("\n\r");
+ while(dout) dout = (PORTB&doutMask)>>5; // wait for dout to go low
 
   for(idx=0; idx<24; idx++){
     LATBbits.LATB6 = 1; //clk high
@@ -161,9 +162,9 @@ int read_hx711_24(){
     waitums(2);
     LATBbits.LATB6 = 0; //clk low
     waitums(4);
-    uart_puts("DOUT: ");
-    PrintNumber(dout,2,1);
-    uart_puts("\n\r");
+//    uart_puts("DOUT: ");
+//    PrintNumber(dout,2,1);
+//    uart_puts("\n\r");
 
     adcVal |= dout;
     adcVal = adcVal<<1;
@@ -174,13 +175,16 @@ int read_hx711_24(){
   LATBbits.LATB6 = 0;
   waitums(4);
 
-  uart_puts("adcVal: ");
-  PrintNumber(adcVal,2,32);
-  uart_puts("\n\r");
+  //sign extend
+  
+
+//  uart_puts("adcVal: ");
+//  PrintNumber(adcVal,2,32);
+//  uart_puts("\n\r");
 
 
 
-  return dout;
+  return adcVal;
 
 }
 
@@ -195,11 +199,15 @@ void main(){
 
   int adc = 0;
  
-  uart_puts("PORTB (1): ");
-  PrintNumber(PORTB,2, 32);
-  uart_puts("\n\r");
-
-  adc = read_hx711_24();
+//  uart_puts("PORTB (1): ");
+//  PrintNumber(PORTB,2, 32);
+//  uart_puts("\n\r");
+  while(1){
+    adc = read_hx711_24();
+    uart_puts("adcVal = ");
+    PrintNumber(adc, 10, 9);
+    uart_puts("\r");
+  }
 
 
 //      PrintNumber(adc, 10, 5);
