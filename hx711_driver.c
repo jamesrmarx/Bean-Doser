@@ -143,11 +143,13 @@ void configurePins(){
 // Return: 32-bit integer with 24-bit 2's 
 // complement value
 // *********************************************
-int read_hx711_24(){
-  int  adcVal   = 0;
+signed int read_hx711_24(){
+  signed int  adcVal   = 0;
   int  idx      = 0;
   int  doutMask = 0b100000; // mask off RB5
-  int  dout = 0;
+  int  dout     = 0;
+  int  sign_ext = 0b11111111; //extend msb if 1
+  int  sign_chk = 1;          //check msb
 
   dout = (PORTB&doutMask)>>5;
  // uart_puts("DOUT INIT: ");
@@ -176,6 +178,9 @@ int read_hx711_24(){
   waitums(4);
 
   //sign extend
+  adcVal = adcVal<<7;
+  adcVal = adcVal>>7;
+
   
 
 //  uart_puts("adcVal: ");
@@ -197,16 +202,19 @@ void main(){
   // Give putty a chance to start
   waitms(500); //wiat 500 ms
 
-  int adc = 0;
+  signed int adc = 0;
+  double grams = 0;
+  double slope = 0.0004562212;
  
 //  uart_puts("PORTB (1): ");
 //  PrintNumber(PORTB,2, 32);
 //  uart_puts("\n\r");
   while(1){
     adc = read_hx711_24();
-    uart_puts("adcVal = ");
-    PrintNumber(adc, 10, 9);
-    uart_puts("\r");
+    adc = adc - 2458000;
+    grams = slope*((double)adc);
+    printf("weight(g): %f\r", grams);
+    
   }
 
 
