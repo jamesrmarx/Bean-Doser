@@ -91,6 +91,36 @@ unsigned int SerialReceive(char *buffer, unsigned int max_size)
  
     return num_char;
 }
+
+
+void uart_puts(char * s)
+{
+	while(*s)
+	{
+		putchar(*s);
+		s++;
+	}
+}
+
+char HexDigit[]="0123456789ABCDEF";
+void PrintNumber(long int val, int Base, int digits)
+{ 
+	int j;
+	#define NBITS 32
+	char buff[NBITS+1];
+	buff[NBITS]=0;
+
+	j=NBITS-1;
+	while ( (val>0) | (digits>0) )
+	{
+		buff[j--]=HexDigit[val%Base];
+		val/=Base;
+		if(digits!=0) digits--;
+	}
+	uart_puts(&buff[j+1]);
+}
+
+
 //**********************************************
 // Function: Configures all pin directions
 // Return: NONE
@@ -106,6 +136,54 @@ void configurePins(){
   LATBbits.LATB6   = 0; // Initialize SCK as low
 }
 
+//**********************************************
+// Function: Read 24 bits of ADC data to 32-bit 
+// integer
+//
+// Return: 32-bit integer with 24-bit 2's 
+// complement value
+// *********************************************
+int read_hx711_24(){
+  int  adcVal   = 0;
+  int  idx      = 0;
+  int  doutMask = 0b100000; // mask off RB5
+  int  dout = 0;
+
+  dout = (PORTB&doutMask)>>5;
+  uart_puts("DOUT INIT: ");
+  PrintNumber(dout,2,1);
+  uart_puts("\n\r");
+
+  for(idx=0; idx<24; idx++){
+    LATBbits.LATB6 = 1; //clk high
+    waitums(2);
+    dout = (PORTB&doutMask)>>5;
+    waitums(2);
+    LATBbits.LATB6 = 0; //clk low
+    waitums(4);
+    uart_puts("DOUT: ");
+    PrintNumber(dout,2,1);
+    uart_puts("\n\r");
+
+    adcVal |= dout;
+    adcVal = adcVal<<1;
+  }
+
+  LATBbits.LATB6 = 1;
+  waitums(4);
+  LATBbits.LATB6 = 0;
+  waitums(4);
+
+  uart_puts("adcVal: ");
+  PrintNumber(adcVal,2,32);
+  uart_puts("\n\r");
+
+
+
+  return dout;
+
+}
+
 void main(){
   DDPCON = 0;
   CFGCON = 0;
@@ -114,5 +192,17 @@ void main(){
 
   // Give putty a chance to start
   waitms(500); //wiat 500 ms
+
+  int adc = 0;
+ 
+  uart_puts("PORTB (1): ");
+  PrintNumber(PORTB,2, 32);
+  uart_puts("\n\r");
+
+  adc = read_hx711_24();
+
+
+//      PrintNumber(adc, 10, 5);
+//      uart_puts("\r");
 }
 
