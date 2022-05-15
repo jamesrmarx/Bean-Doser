@@ -12,6 +12,7 @@
 #define SYSCLK 40000000L
 #define Baud2BRG(desired_baud)( (SYSCLK / (16*desired_baud))-1)
 
+
 //******************************************
 // Delay Functions                         *
 // *****************************************
@@ -143,18 +144,14 @@ void configurePins(){
 // Return: 32-bit integer with 24-bit 2's 
 // complement value
 // *********************************************
-signed int read_hx711_24(){
-  signed int  adcVal   = 0;
+int read_hx711_24(){
+  int  adcVal   = 0;
   int  idx      = 0;
   int  doutMask = 0b100000; // mask off RB5
   int  dout     = 0;
-  int  sign_ext = 0b11111111; //extend msb if 1
-  int  sign_chk = 1;          //check msb
 
-  dout = (PORTB&doutMask)>>5;
- // uart_puts("DOUT INIT: ");
- // PrintNumber(dout,2,1);
- // uart_puts("\n\r");
+ dout = (PORTB&doutMask)>>5;             // read dout for while loop
+
  while(dout) dout = (PORTB&doutMask)>>5; // wait for dout to go low
 
   for(idx=0; idx<24; idx++){
@@ -164,9 +161,6 @@ signed int read_hx711_24(){
     waitums(2);
     LATBbits.LATB6 = 0; //clk low
     waitums(4);
-//    uart_puts("DOUT: ");
-//    PrintNumber(dout,2,1);
-//    uart_puts("\n\r");
 
     adcVal |= dout;
     adcVal = adcVal<<1;
@@ -181,14 +175,6 @@ signed int read_hx711_24(){
   adcVal = adcVal<<7;
   adcVal = adcVal>>7;
 
-  
-
-//  uart_puts("adcVal: ");
-//  PrintNumber(adcVal,2,32);
-//  uart_puts("\n\r");
-
-
-
   return adcVal;
 
 }
@@ -197,28 +183,54 @@ void main(){
   DDPCON = 0;
   CFGCON = 0;
   UART2Configure(115200); // Configure UART2 for baud rate of 115200
-  configurePins(); // Configure pins and directions
+  configurePins();        // Configure pins and directions
 
   // Give putty a chance to start
   waitms(500); //wiat 500 ms
 
-  signed int adc = 0;
+  int adc = 0;
   double grams = 0;
-  double slope = 0.0004562212;
- 
-//  uart_puts("PORTB (1): ");
-//  PrintNumber(PORTB,2, 32);
-//  uart_puts("\n\r");
-  while(1){
-    adc = read_hx711_24();
-    adc = adc - 2458000;
-    grams = slope*((double)adc);
-    printf("weight(g): %f\r", grams);
-    
+  double slope = 0.00046;
+
+  //implement moving average in main - will change later
+  const int SMOOTHING_WINDOW_SIZE = 5;
+  int samples[SMOOTHING_WINDOW_SIZE];  // Readings from ADC
+  int curReadIndex = 0;                // Index of current reading
+  int sampleTotal  = 0;                // Running total
+  int sampleAvg    = 0;                // Calculated average
+
+  // initialize all readings to zero
+  for(curReadIndex=0; curReadIndex<SMOOTHING_WINDOW_SIZE; curReadIndex++){
+    samples[curReadIndex] = 0;
   }
 
+  curReadIndex = 0;
+  
 
-//      PrintNumber(adc, 10, 5);
-//      uart_puts("\r");
+  while(1){
+    // subract last reading
+    sampleTotal = sampleTotal - samples[curReadIndex]; 
+
+    // read sensor val
+    adc = read_hx711_24();
+    printf("Raw Val: %d ", adc);
+    samples[curReadIndex] = adc;
+
+    // add to total
+    sampleTotal = sampleTotal + adc;
+
+    // increment index
+    curReadIndex = (curReadIndex+1) % SMOOTHING_WINDOW_SIZE;
+
+    // calculate average
+    sampleAvg = sampleTotal / SMOOTHING_WINDOW_SIZE;
+    printf("  Smoothed Val: %d", sampleAvg);
+
+    grams = (double)(sampleAvg-2461200) * slope;
+    printf("  Weight: %3.1f (g)\r", grams);
+
+    
+    
+  }
 }
 
